@@ -4,17 +4,22 @@
 
 import { Router } from 'express'
 import { validateBirthData } from '../middleware/validate.js'
-import { calculateNatalChart } from '../lib/astro/calculator.js'
 import { generateInterpretation } from '../lib/astro/interpretations.js'
-import { generateLifePlan, generateTopicAdvice } from '../lib/ai/generator.js'
 import { generateChartSVG } from '../lib/astro/chartSVG.js'
-import { generatePDFReport } from '../lib/astro/pdfReport.js'
+
+// 慢速模組改為 lazy import，加速 server 啟動
+const lazy = {
+  async calculator() { return import('../lib/astro/calculator.js') },
+  async generator()  { return import('../lib/ai/generator.js') },
+  async pdfReport()  { return import('../lib/astro/pdfReport.js') },
+}
 
 const router = Router()
 
 // ─── POST /api/calculate ──────────────────────────────────
 router.post('/calculate', validateBirthData, async (req, res) => {
   try {
+    const { calculateNatalChart } = await lazy.calculator()
     const chart = await calculateNatalChart(req.body)
     const interpretation = generateInterpretation(chart)
     res.json({ success: true, chart, interpretation })
@@ -51,6 +56,7 @@ router.post('/generate-report', async (req, res) => {
   res.flushHeaders()
 
   try {
+    const { generateLifePlan } = await lazy.generator()
     await generateLifePlan(chart, interpretation, (chunk) => {
       res.write(`data: ${JSON.stringify({ text: chunk })}\n\n`)
     })
@@ -70,6 +76,7 @@ router.post('/topic-advice', async (req, res) => {
     return res.status(400).json({ success: false, error: '缺少主題或命盤資料' })
   }
   try {
+    const { generateTopicAdvice } = await lazy.generator()
     const advice = await generateTopicAdvice(topic, chart, interpretation)
     res.json({ success: true, advice })
   } catch (err) {
@@ -83,6 +90,7 @@ router.post('/export-pdf', async (req, res) => {
   if (!chart) return res.status(400).json({ success: false, error: '缺少命盤資料' })
 
   try {
+    const { generatePDFReport } = await lazy.pdfReport()
     const pdfBuffer = await generatePDFReport(chart, interpretation, aiReport || null)
     const name = chart.birthData?.meta?.name || 'chart'
     const filename = `astro-${name}-${chart.birthData.date.year}.pdf`

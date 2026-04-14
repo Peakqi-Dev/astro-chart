@@ -1,9 +1,19 @@
 /**
  * 占星計算引擎
- * 使用 astronomia 套件計算行星位置、交點、宮位、相位
+ * 使用 ephemeris 套件計算行星位置，astronomia 計算太陽位置
  */
 
-import { solar, moonphase, base, julian, sidereal } from 'astronomia'
+// 慢速模組改為 lazy import 以加速 server 啟動
+let _astro
+async function getAstro() {
+  if (!_astro) { _astro = await import('astronomia') }
+  return _astro
+}
+let _ephem
+async function getEphem() {
+  if (!_ephem) { _ephem = (await import('ephemeris')).default }
+  return _ephem
+}
 import { SIGNS, ASPECTS, PLANETS } from '../../types/index.js'
 
 // ─── 工具函式 ────────────────────────────────────────────
@@ -30,9 +40,9 @@ export function longitudeToSign(lon) {
  * 將日期時間轉為儒略日 (Julian Day Number)
  * timezone offset 單位：小時
  */
-export function toJulianDay(year, month, day, hour, minute, tzOffset) {
+export function toJulianDay(year, month, day, hour, minute, tzOffset, julianMod) {
   const fracDay = day + (hour + minute / 60) / 24
-  return julian.CalendarGregorianToJD(year, month, fracDay)
+  return julianMod.CalendarGregorianToJD(year, month, fracDay)
 }
 
 /**
@@ -62,7 +72,7 @@ export function getTimezoneOffset(timezone, year, month, day) {
 /**
  * 計算太陽位置（黃道度數）
  */
-function calcSun(jd) {
+function calcSun(jd, solar, base) {
   try {
     const lon = solar.apparentLongitude(base.J2000Century(jd))
     return ((lon * 180 / Math.PI) % 360 + 360) % 360
@@ -76,38 +86,16 @@ function calcSun(jd) {
 }
 
 /**
- * 使用克卜勒方程式計算行星黃道經度
- * 參數來源：J2000.0 軌道要素
+ * 使用 ephemeris 套件計算所有行星黃道經度（高精度）
+ * 回傳 { mercury, venus, mars, jupiter, saturn, uranus, neptune, pluto } 各自的度數
  */
-function calcPlanetLongitude(jd, planet) {
-  const T = (jd - 2451545.0) / 36525
-
-  const elements = {
-    mercury: { L: 252.251 + 149474.072 * T, M: 174.795 + 149472.515 * T, e: 0.20563 },
-    venus:   { L: 181.980 + 58519.213 * T,  M: 50.416  + 58517.803 * T,  e: 0.00677 },
-    mars:    { L: 355.433 + 19141.696 * T,  M: 19.387  + 19140.300 * T,  e: 0.09341 },
-    jupiter: { L: 34.351  + 3036.302 * T,   M: 20.020  + 3034.906 * T,   e: 0.04839 },
-    saturn:  { L: 50.077  + 1223.511 * T,   M: 317.021 + 1222.114 * T,   e: 0.05551 },
-    uranus:  { L: 314.055 + 429.863 * T,    M: 141.050 + 428.379 * T,    e: 0.04630 },
-    neptune: { L: 304.349 + 219.883 * T,    M: 256.225 + 218.459 * T,    e: 0.00899 },
-    pluto:   { L: 238.929 + 145.186 * T,    M: 14.882  + 144.960 * T,    e: 0.24882 },
+function calcPlanetsEphemeris(ephemResult) {
+  const obs = ephemResult.observed
+  const out = {}
+  for (const name of ['mercury', 'venus', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune', 'pluto']) {
+    out[name] = obs[name].apparentLongitudeDd
   }
-
-  const el = elements[planet]
-  if (!el) return 0
-
-  const M = (el.M % 360) * Math.PI / 180
-  // 克卜勒方程式（迭代解）
-  let E = M
-  for (let i = 0; i < 10; i++) {
-    E = M + el.e * Math.sin(E)
-  }
-  const v = 2 * Math.atan2(
-    Math.sqrt(1 + el.e) * Math.sin(E / 2),
-    Math.sqrt(1 - el.e) * Math.cos(E / 2)
-  )
-  const lon = ((el.L - el.M * 180 / Math.PI + v * 180 / Math.PI) % 360 + 360) % 360
-  return lon
+  return out
 }
 
 /**
@@ -280,6 +268,7 @@ function calcAspects(planets) {
  * @returns {import('../../types/index.js').NatalChart}
  */
 export async function calculateNatalChart(birthData) {
+  const [{ solar, base, julian }, ephem] = await Promise.all([getAstro(), getEphem()])
   const { date, time, location } = birthData
 
   // 取得時區偏移
@@ -288,19 +277,19 @@ export async function calculateNatalChart(birthData) {
   // 計算儒略日
   const actualHour = time.precision === 'unknown' ? 12 : time.hour
   const actualMinute = time.precision === 'unknown' ? 0 : time.minute
-  const jd = toJulianDay(date.year, date.month, date.day, actualHour, actualMinute, tzOffset)
+  const jd = toJulianDay(date.year, date.month, date.day, actualHour, actualMinute, tzOffset, julian)
 
-  // 計算各行星位置
-  const sunLon     = calcSun(jd)
-  const moonLon    = calcMoon(jd)
-  const mercuryLon = calcPlanetLongitude(jd, 'mercury')
-  const venusLon   = calcPlanetLongitude(jd, 'venus')
-  const marsLon    = calcPlanetLongitude(jd, 'mars')
-  const jupiterLon = calcPlanetLongitude(jd, 'jupiter')
-  const saturnLon  = calcPlanetLongitude(jd, 'saturn')
-  const uranusLon  = calcPlanetLongitude(jd, 'uranus')
-  const neptuneLon = calcPlanetLongitude(jd, 'neptune')
-  const plutoLon   = calcPlanetLongitude(jd, 'pluto')
+  // 建立 UTC Date 物件供 ephemeris 使用
+  const utcHour = actualHour - tzOffset
+  const utcDate = new Date(Date.UTC(date.year, date.month - 1, date.day, utcHour, actualMinute, 0))
+
+  // 使用 ephemeris 計算行星位置（高精度）
+  const ephemResult = ephem.getAllPlanets(utcDate, location.latitude, location.longitude, 0)
+  const planetLons = calcPlanetsEphemeris(ephemResult)
+
+  // 太陽和月亮保持現有算法
+  const sunLon  = calcSun(jd, solar, base)
+  const moonLon = calcMoon(jd)
 
   // 計算交點
   const northNodeLon = calcNorthNode(jd)
@@ -313,28 +302,29 @@ export async function calculateNatalChart(birthData) {
 
   // 組合行星資料
   const rawPlanets = [
-    { id: 'sun',     longitude: sunLon     },
-    { id: 'moon',    longitude: moonLon    },
-    { id: 'mercury', longitude: mercuryLon },
-    { id: 'venus',   longitude: venusLon   },
-    { id: 'mars',    longitude: marsLon    },
-    { id: 'jupiter', longitude: jupiterLon },
-    { id: 'saturn',  longitude: saturnLon  },
-    { id: 'uranus',  longitude: uranusLon  },
-    { id: 'neptune', longitude: neptuneLon },
-    { id: 'pluto',   longitude: plutoLon   },
+    { id: 'sun',     longitude: sunLon },
+    { id: 'moon',    longitude: moonLon },
+    { id: 'mercury', longitude: planetLons.mercury },
+    { id: 'venus',   longitude: planetLons.venus },
+    { id: 'mars',    longitude: planetLons.mars },
+    { id: 'jupiter', longitude: planetLons.jupiter },
+    { id: 'saturn',  longitude: planetLons.saturn },
+    { id: 'uranus',  longitude: planetLons.uranus },
+    { id: 'neptune', longitude: planetLons.neptune },
+    { id: 'pluto',   longitude: planetLons.pluto },
   ]
 
   // 逆行判斷：計算前一天的行星位置，若今日 < 昨日 => 逆行
-  const jdYesterday = jd - 1
+  const utcDateYesterday = new Date(utcDate.getTime() - 86400000)
+  const ephemYesterday = ephem.getAllPlanets(utcDateYesterday, location.latitude, location.longitude, 0)
+  const planetLonsYesterday = calcPlanetsEphemeris(ephemYesterday)
   const retrogradeMap = {}
   for (const p of rawPlanets) {
     if (p.id === 'sun' || p.id === 'moon') {
-      retrogradeMap[p.id] = false // 太陽月亮不逆行
+      retrogradeMap[p.id] = false
       continue
     }
-    const lonYesterday = calcPlanetLongitude(jdYesterday, p.id)
-    // 處理跨越 0°/360° 的邊界
+    const lonYesterday = planetLonsYesterday[p.id]
     let diff = p.longitude - lonYesterday
     if (diff > 180) diff -= 360
     if (diff < -180) diff += 360

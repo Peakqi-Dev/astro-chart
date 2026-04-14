@@ -5,7 +5,15 @@
  * - 修正行星頁版面計算
  */
 
-import PDFDocument from 'pdfkit'
+// pdfkit 載入很慢（~30s），改為 lazy import 以加速 server 啟動
+let PDFDocument
+async function getPDFDocument() {
+  if (!PDFDocument) {
+    const mod = await import('pdfkit')
+    PDFDocument = mod.default
+  }
+  return PDFDocument
+}
 import { NORTH_NODE_SIGNS, SOUTH_NODE_SIGNS, NORTH_NODE_HOUSES } from './interpretations.js'
 
 const FONT_REGULAR = '/usr/share/fonts/opentype/ipafont-gothic/ipag.ttf'
@@ -22,8 +30,9 @@ function strokeRect(doc,x,y,w,h,color,lw=0.5){doc.save().lineWidth(lw).rect(x,y,
 function hLine(doc,x1,x2,y,color,lw=0.5){doc.save().lineWidth(lw).moveTo(x1,y).lineTo(x2,y).stroke(color).restore()}
 
 export async function generatePDFReport(chart, interpretation, aiReport = null) {
+  const PDFDoc = await getPDFDocument()
   return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({
+    const doc = new PDFDoc({
       size: 'A4',
       margins: { top: 40, bottom: 40, left: 50, right: 50 },
       info: { Title: `星圖命盤報告 ${chart.birthData?.meta?.name || ''}`, Author: '星圖占星系統' },

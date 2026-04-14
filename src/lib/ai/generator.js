@@ -2,10 +2,16 @@
  * AI 生成層 — 使用 Claude API 產生個人化人生規劃與能量建議
  */
 
-import Anthropic from '@anthropic-ai/sdk'
+// lazy import 以加速 server 啟動
+let client
+async function getClient() {
+  if (!client) {
+    const { default: Anthropic } = await import('@anthropic-ai/sdk')
+    client = new Anthropic()
+  }
+  return client
+}
 import { NORTH_NODE_SIGNS, SOUTH_NODE_SIGNS, NORTH_NODE_HOUSES } from '../astro/interpretations.js'
-
-const client = new Anthropic()
 
 // ─── Prompt 建構 ──────────────────────────────────────────
 
@@ -96,7 +102,8 @@ ${chartSummary}
 ## 當前發展重點
 （根據土星與北交點位置，說明目前人生階段最重要的功課）`
 
-  const stream = await client.messages.stream({
+  const cl = await getClient()
+  const stream = await cl.messages.stream({
     model: 'claude-sonnet-4-20250514',
     max_tokens: 2000,
     system: systemPrompt,
@@ -132,7 +139,8 @@ export async function generateTopicAdvice(topic, chart, interpretation) {
 
   const prompt = topicPrompts[topic] || `請針對「${topic}」這個主題，給出更深入的占星解析與建議`
 
-  const response = await client.messages.create({
+  const cl = await getClient()
+  const response = await cl.messages.create({
     model: 'claude-sonnet-4-20250514',
     max_tokens: 1000,
     system: '你是一位資深西洋占星師，用繁體中文回應，語氣溫暖而具體。',
