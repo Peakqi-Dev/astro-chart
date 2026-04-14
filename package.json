@@ -1,0 +1,20 @@
+{
+  "name": "astro-chart",
+  "version": "1.0.0",
+  "description": "占星命盤計算與人生規劃系統",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.20.0",
+    "astronomia": "^4.1.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "node-fetch": "^3.3.2",
+    "pdfkit": "^0.18.0"
+  }
+}

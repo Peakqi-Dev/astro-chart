@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>星圖 — 占星命盤與靈魂使命</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<!-- ── 頁首 ────────────────────────────────────────── -->
+<header class="header">
+  <div class="container">
+    <div class="logo">
+      <span class="logo-symbol">☽</span>
+      <span class="logo-text">星圖</span>
+    </div>
+    <p class="tagline">探索你的星盤，認識靈魂使命</p>
+  </div>
+</header>
+
+<!-- ── 輸入表單 ──────────────────────────────────────── -->
+<main class="main">
+  <div class="container">
+
+    <section class="form-section" id="form-section">
+      <h1 class="section-title">輸入出生資料</h1>
+
+      <form id="birth-form" novalidate>
+
+        <!-- 出生日期 -->
+        <div class="field-group">
+          <h2 class="field-group-title">出生日期</h2>
+          <div class="field-row cols-3">
+            <div class="field">
+              <label class="label" for="year">年份 <span class="required">*</span></label>
+              <input type="number" id="year" name="year" placeholder="1990" min="1900" max="2025" required>
+              <span class="error-msg" id="year-err"></span>
+            </div>
+            <div class="field">
+              <label class="label" for="month">月份 <span class="required">*</span></label>
+              <select id="month" name="month" required>
+                <option value="">選擇月份</option>
+                <option value="1">1 月</option><option value="2">2 月</option>
+                <option value="3">3 月</option><option value="4">4 月</option>
+                <option value="5">5 月</option><option value="6">6 月</option>
+                <option value="7">7 月</option><option value="8">8 月</option>
+                <option value="9">9 月</option><option value="10">10 月</option>
+                <option value="11">11 月</option><option value="12">12 月</option>
+              </select>
+            </div>
+            <div class="field">
+              <label class="label" for="day">日期 <span class="required">*</span></label>
+              <input type="number" id="day" name="day" placeholder="15" min="1" max="31" required>
+              <span class="error-msg" id="day-err"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 出生時間 -->
+        <div class="field-group">
+          <h2 class="field-group-title">出生時間</h2>
+          <div class="field-row cols-2" id="time-inputs">
+            <div class="field">
+              <label class="label" for="hour">小時 <span class="required">*</span></label>
+              <input type="number" id="hour" name="hour" placeholder="14" min="0" max="23">
+              <span class="hint">24 小時制（0–23）</span>
+            </div>
+            <div class="field">
+              <label class="label" for="minute">分鐘 <span class="required">*</span></label>
+              <input type="number" id="minute" name="minute" placeholder="30" min="0" max="59">
+            </div>
+          </div>
+          <label class="checkbox-row">
+            <input type="checkbox" id="time-unknown">
+            <span>不知道出生時間</span>
+            <span class="badge badge-warning" id="time-warn" style="display:none">宮位將使用正午估算</span>
+          </label>
+        </div>
+
+        <!-- 出生地點 -->
+        <div class="field-group">
+          <h2 class="field-group-title">出生地點</h2>
+          <div class="field">
+            <label class="label" for="city">城市名稱 <span class="required">*</span></label>
+            <input type="text" id="city" name="city" placeholder="台北市、Tokyo、New York...">
+            <span class="hint">輸入城市名稱後按下 Enter 或點擊搜尋</span>
+          </div>
+          <div class="field-row cols-3" id="geo-fields" style="opacity:0.4;pointer-events:none">
+            <div class="field">
+              <label class="label">緯度</label>
+              <input type="text" id="lat" readonly placeholder="自動填入">
+            </div>
+            <div class="field">
+              <label class="label">經度</label>
+              <input type="text" id="lng" readonly placeholder="自動填入">
+            </div>
+            <div class="field">
+              <label class="label">時區</label>
+              <input type="text" id="tz" readonly placeholder="自動填入">
+            </div>
+          </div>
+          <!-- 預設城市快選 -->
+          <div class="city-presets">
+            <span class="preset-label">快速選取：</span>
+            <button type="button" class="preset-btn" data-lat="25.0330" data-lng="121.5654" data-tz="Asia/Taipei" data-city="台北市">台北</button>
+            <button type="button" class="preset-btn" data-lat="22.2783" data-lng="114.1747" data-tz="Asia/Hong_Kong" data-city="香港">香港</button>
+            <button type="button" class="preset-btn" data-lat="31.2304" data-lng="121.4737" data-tz="Asia/Shanghai" data-city="上海">上海</button>
+            <button type="button" class="preset-btn" data-lat="35.6762" data-lng="139.6503" data-tz="Asia/Tokyo" data-city="東京">東京</button>
+            <button type="button" class="preset-btn" data-lat="40.7128" data-lng="-74.0060" data-tz="America/New_York" data-city="紐約">紐約</button>
+            <button type="button" class="preset-btn" data-lat="51.5074" data-lng="-0.1278" data-tz="Europe/London" data-city="倫敦">倫敦</button>
+          </div>
+        </div>
+
+        <!-- 選填資料 -->
+        <div class="field-group">
+          <h2 class="field-group-title">選填資料</h2>
+          <div class="field-row cols-2">
+            <div class="field">
+              <label class="label" for="name">姓名 <span class="optional">選填</span></label>
+              <input type="text" id="name" name="name" placeholder="用於個人化報告">
+            </div>
+            <div class="field">
+              <label class="label" for="gender">性別 <span class="optional">選填</span></label>
+              <select id="gender" name="gender">
+                <option value="unspecified">不指定</option>
+                <option value="female">女性</option>
+                <option value="male">男性</option>
+                <option value="nonbinary">非二元</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <button type="submit" class="btn-primary" id="submit-btn">
+          <span class="btn-icon">✦</span>
+          計算命盤
+        </button>
+      </form>
+    </section>
+
+    <!-- ── 載入中 ──────────────────────────────────────── -->
+    <section class="loading-section" id="loading-section" style="display:none">
+      <div class="loading-content">
+        <div class="spinner"></div>
+        <p class="loading-text" id="loading-text">正在計算星盤位置...</p>
+      </div>
+    </section>
+
+    <!-- ── 命盤結果 ────────────────────────────────────── -->
+    <section class="result-section" id="result-section" style="display:none">
+
+      <!-- 命盤頭部 -->
+      <div class="chart-header">
+        <h2 class="chart-name" id="chart-name">命盤報告</h2>
+        <div class="three-signs" id="three-signs">
+          <div class="sign-card">
+            <span class="sign-label">太陽星座</span>
+            <span class="sign-value" id="sun-sign">—</span>
+          </div>
+          <div class="sign-card">
+            <span class="sign-label">月亮星座</span>
+            <span class="sign-value" id="moon-sign">—</span>
+          </div>
+          <div class="sign-card">
+            <span class="sign-label">上升星座</span>
+            <span class="sign-value" id="rising-sign">—</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 標籤頁 -->
+      <div class="tabs">
+        <button class="tab active" data-tab="wheel">命盤星圖</button>
+        <button class="tab" data-tab="planets">行星位置</button>
+        <button class="tab" data-tab="nodes">靈魂交點</button>
+        <button class="tab" data-tab="aspects">行星相位</button>
+        <button class="tab" data-tab="report">AI 人生規劃</button>
+      </div>
+
+      <!-- 命盤星圖 -->
+      <div class="tab-content active" id="tab-wheel">
+        <div class="chart-wheel-wrap">
+          <div id="chart-svg-container" class="chart-svg-container">
+            <p class="chart-loading-hint">命盤圖載入中...</p>
+          </div>
+          <div class="wheel-legend">
+            <div class="legend-row"><span class="legend-dot" style="background:#e88060"></span>火象星座</div>
+            <div class="legend-row"><span class="legend-dot" style="background:#90b870"></span>土象星座</div>
+            <div class="legend-row"><span class="legend-dot" style="background:#70a8d8"></span>風象星座</div>
+            <div class="legend-row"><span class="legend-dot" style="background:#9080c8"></span>水象星座</div>
+            <div class="legend-row"><span style="color:#5dd8b5;font-size:14px">☊</span> 北交點</div>
+            <div class="legend-row"><span style="color:#f08080;font-size:14px">☋</span> 南交點</div>
+            <div class="legend-row"><span style="color:#e06060;font-size:11px">℞</span> 逆行</div>
+          </div>
+        </div>
+        <button class="btn-pdf" onclick="exportPDF()" id="pdf-btn">
+          ↓ 下載 PDF 報告
+        </button>
+      </div>
+
+      <!-- 行星位置 -->
+      <div class="tab-content" id="tab-planets">
+        <div class="planets-grid" id="planets-grid"></div>
+      </div>
+
+      <!-- 靈魂交點 -->
+      <div class="tab-content" id="tab-nodes">
+        <div class="nodes-content" id="nodes-content"></div>
+      </div>
+
+      <!-- 相位 -->
+      <div class="tab-content" id="tab-aspects">
+        <div class="aspects-list" id="aspects-list"></div>
+      </div>
+
+      <!-- AI 報告 -->
+      <div class="tab-content" id="tab-report">
+        <div class="report-actions">
+          <button class="btn-generate" id="generate-btn" onclick="generateReport()">
+            <span>✦</span> 生成 AI 人生規劃報告
+          </button>
+          <p class="report-hint">由 Claude AI 根據你的命盤生成個人化建議（約需 30 秒）</p>
+        </div>
+        <div class="report-content" id="report-content" style="display:none"></div>
+
+        <!-- 主題建議按鈕 -->
+        <div class="topic-buttons" id="topic-buttons" style="display:none">
+          <p class="topic-label">深入探索：</p>
+          <button class="btn-topic" onclick="getTopicAdvice('career')">事業與天賦</button>
+          <button class="btn-topic" onclick="getTopicAdvice('relationship')">愛情與關係</button>
+          <button class="btn-topic" onclick="getTopicAdvice('energy')">能量管理</button>
+          <button class="btn-topic" onclick="getTopicAdvice('spiritual')">靈性成長</button>
+          <button class="btn-topic" onclick="getTopicAdvice('finance')">財富豐盛</button>
+        </div>
+        <div class="pdf-row" id="pdf-row" style="display:none">
+          <button class="btn-pdf" onclick="exportPDF()">↓ 含 AI 報告一起下載 PDF</button>
+        </div>
+      </div>
+
+      <button class="btn-secondary" onclick="resetForm()">重新計算</button>
+    </section>
+
+  </div>
+</main>
+
+<footer class="footer">
+  <p>占星是認識自我的工具，而非命運的枷鎖。</p>
+</footer>
+
+<script src="/js/app.js"></script>
+</body>
+</html>
