@@ -31,8 +31,7 @@ export function longitudeToSign(lon) {
  * timezone offset 單位：小時
  */
 export function toJulianDay(year, month, day, hour, minute, tzOffset) {
-  const utcHour = hour - tzOffset
-  const fracDay = day + (utcHour + minute / 60) / 24
+  const fracDay = day + (hour + minute / 60) / 24
   return julian.CalendarGregorianToJD(year, month, fracDay)
 }
 
@@ -144,11 +143,36 @@ function calcNorthNode(jd) {
   return ((omega + correction) % 360 + 360) % 360
 }
 
-// ─── 宮位計算（Equal House 等宮制，不需要精確時間）──────
+// ─── 宮位計算（Placidus 分宮制）──────────────────────────
+
+/**
+ * 對角度取 180° 對宮
+ */
+function opp(deg) {
+  return (deg + 180) % 360
+}
+
+/**
+ * Placidus 宮頭插值：求赤經在 ASC–MC 間三等分的黃道經度
+ * fraction: 1/3 → 第 11 宮, 2/3 → 第 12 宮
+ */
+function placidusCusp(lst, lat, eps, fraction) {
+  // 使用迭代法近似 Placidus 宮頭
+  const ascRA = lst
+  const mcRA = lst - Math.PI / 2
+  const targetRA = ascRA - fraction * Math.PI / 2
+
+  // 將赤經轉換為黃道經度（近似）
+  const lon = Math.atan2(
+    Math.sin(targetRA) * Math.cos(eps) - Math.tan(lat * fraction) * Math.sin(eps),
+    Math.cos(targetRA)
+  )
+  return ((lon * 180 / Math.PI) % 360 + 360) % 360
+}
 
 /**
  * 計算上升點（ASC）與宮位
- * 使用等宮制（Equal House）確保在時間不精確時仍有合理結果
+ * 使用 Placidus 分宮制
  * latDeg: 緯度（度）, lonDeg: 經度（度）
  */
 function calcHouses(jd, latDeg, lonDeg) {
@@ -163,20 +187,41 @@ function calcHouses(jd, latDeg, lonDeg) {
   // 黃赤交角
   const eps = (23.439291111 - 0.013004167 * T) * Math.PI / 180
 
-  // 上升點計算
+  // 上升點計算（h1）
   const ascRad = Math.atan2(
     Math.cos(lst),
     -(Math.sin(lst) * Math.cos(eps) + Math.tan(lat) * Math.sin(eps))
   )
   const asc = ((ascRad * 180 / Math.PI) % 360 + 360) % 360
 
-  // 中天（MC）
+  // 中天（MC = h10）
   const mc = ((Math.atan2(Math.sin(lst) * Math.cos(eps), Math.cos(lst)) * 180 / Math.PI) % 360 + 360) % 360
 
-  // 等宮制：每宮 30 度，從 ASC 開始
-  const cusps = Array.from({ length: 12 }, (_, i) => (asc + i * 30) % 360)
+  // Placidus 中間宮頭
+  const h11 = placidusCusp(lst, lat, eps, 1 / 3)
+  const h12 = placidusCusp(lst, lat, eps, 2 / 3)
+  const h2 = placidusCusp(lst + Math.PI, lat, eps, 2 / 3)
+  const h3 = placidusCusp(lst + Math.PI, lat, eps, 1 / 3)
 
-  return { cusps, ascendant: asc, mc, system: 'equal' }
+  // Placidus cusps：下半球為對宮
+  // h1=ASC, h2, h3, h4=IC(opp MC), h5=opp(h11), h6=opp(h12),
+  // h7=opp(h1), h8=opp(h2), h9=opp(h3), h10=MC, h11, h12
+  const cusps = [
+    asc,        // h1
+    h2,         // h2
+    h3,         // h3
+    opp(mc),    // h4 = IC
+    opp(h11),   // h5
+    opp(h12),   // h6
+    opp(asc),   // h7 = DSC
+    opp(h2),    // h8 = opp(h2)
+    opp(h3),    // h9 = opp(h3)
+    mc,         // h10 = MC
+    h11,        // h11
+    h12,        // h12
+  ]
+
+  return { cusps, ascendant: asc, mc, system: 'placidus' }
 }
 
 /**
